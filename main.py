@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 import streamlit as st
 import pandas as pd
-import joblib
+import joblib  # type: ignore
 
 # Page configuration
 st.set_page_config(
