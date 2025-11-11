@@ -1,0 +1,5 @@
+{
+  "best_model_name": "XGBoost",
+  "best_model_path": "C:/Users/awini/formative2-mlp/data/processed/models\\product_recommender_xgb.joblib",
+  "label_encoder": "C:/Users/awini/formative2-mlp/data/processed/models\\label_encoder.joblib"
+}
