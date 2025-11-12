@@ -41,7 +41,7 @@ def load_models():
                 models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_xgb.joblib")
                 models['model_used'] = 'XGBoost'
             except Exception as xgb_error:
-                st.warning(f"⚠️ XGBoost model failed to load: {str(xgb_error)[:100]}... Using Random Forest instead.")
+                st.warning(f"XGBoost model failed to load: {str(xgb_error)[:100]}... Using Random Forest instead.")
             models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib")
             models['model_used'] = 'Random Forest (fallback)'
         else:
@@ -91,26 +91,26 @@ with st.sidebar:
 
     # Face authentication status
     if st.session_state.face_authenticated:
-        st.success("✅ Face Authenticated")
+        st.success("Face Authenticated")
     else:
-        st.error("❌ Face Not Authenticated")
+        st.error("Face Not Authenticated")
 
     # Voice authentication status
     if st.session_state.voice_authenticated:
-        st.success("✅ Voice Verified")
+        st.success("Voice Verified")
     else:
-        st.error("❌ Voice Not Verified")
+        st.error("Voice Not Verified")
 
     st.divider()
 
     # Model info
-    st.subheader("🤖 Model Information")
+    st.subheader("Model Information")
     st.info(f"**Active Model:** {models['model_used']}")
 
     st.divider()
 
     # Reset button
-    if st.button("🔄 Reset Authentication"):
+    if st.button("Reset Authentication"):
         st.session_state.face_authenticated = False
         st.session_state.voice_authenticated = False
         st.session_state.current_user = None
@@ -118,8 +118,8 @@ with st.sidebar:
 
 # Main content area
 tab1, tab2, tab3, tab4 = st.tabs(
-    ["📊 Data Overview", "👤 Face Authentication",
-      "🎤 Voice Verification", "🎯 Product Prediction"])
+    ["Data Overview", "Face Authentication",
+      "Voice Verification", "Product Prediction"])
 
 # Tab 1: Data Overview
 with tab1:
@@ -148,7 +148,7 @@ with tab1:
 
 # Tab 2: Face Authentication
 with tab2:
-    st.header("👤 Step 1: Face Recognition Authentication")
+    st.header("Step 1: Face Recognition Authentication")
 
     st.write("Upload a facial image for authentication")
 
@@ -177,21 +177,20 @@ with tab2:
                 if auth_choice == "Authorized User":
                     st.session_state.face_authenticated = True
                     st.session_state.current_user = "User_001"  # Simulated user ID
-                    st.success("✅ Face recognized! You may proceed to voice verification.")
+                    st.success("Face recognized! You may proceed to voice verification.")
                 else:
                     st.session_state.face_authenticated = False
-                    st.error("❌ Face not recognized. Access denied.")
+                    st.error("Face not recognized. Access denied.")
                 st.rerun()
 
     if not st.session_state.face_authenticated:
-        st.warning("⚠️ Please authenticate your face to proceed to voice verification")
-
+        st.warning("Please authenticate your face to proceed to voice verification")
 # Tab 3: Voice Verification
 with tab3:
-    st.header("🎤 Step 2: Voice Verification")
+    st.header("Step 2: Voice Verification")
 
     if not st.session_state.face_authenticated:
-        st.error("❌ Face authentication required first!")
+        st.error("Face authentication required first!")
         st.stop()
 
     st.write("Upload an audio sample saying 'Yes, approve' or 'Confirm transaction'")
@@ -214,28 +213,27 @@ with tab3:
         if st.button("Verify Voice", type="primary"):
             if voice_choice == "Authorized Voice":
                 st.session_state.voice_authenticated = True
-                st.success("✅ Voice verified! You may now access product recommendations.")
+                st.success("Voice verified! You may now access product recommendations.")
             else:
                 st.session_state.voice_authenticated = False
-                st.error("❌ Voice not recognized. Access denied.")
+                st.error("Voice not recognized. Access denied.")
             st.rerun()
 
     if not st.session_state.voice_authenticated:
-        st.warning("⚠️ Please verify your voice to access product recommendations")
-
+        st.warning("Please verify your voice to access product recommendations")
 # Tab 4: Product Prediction
 with tab4:
     st.header("🎯 Step 3: Product Recommendation")
 
     if not st.session_state.face_authenticated:
-        st.error("❌ Face authentication required!")
+        st.error("Face authentication required!")
         st.stop()
 
     if not st.session_state.voice_authenticated:
-        st.error("❌ Voice verification required!")
+        st.error("Voice verification required!")
         st.stop()
 
-    st.success("✅ All authentication steps completed! You can now get product recommendations.")
+    st.success("All authentication steps completed! You can now get product recommendations.")
 
     # Input features for prediction
     st.subheader("Enter Customer Profile")
@@ -297,7 +295,7 @@ with tab4:
         st.dataframe(input_data, use_container_width=True)
 
     # Make prediction
-    if st.button("🎯 Get Product Recommendation", type="primary"):
+    if st.button("Get Product Recommendation", type="primary"):
         try:
             # Prepare data (encode categorical variables)
             input_encoded = pd.get_dummies(input_data, columns=['social_media_platform', 'review_sentiment'])
@@ -317,7 +315,7 @@ with tab4:
             predicted_category = models['label_encoder'].inverse_transform(prediction)[0]
 
             # Display results
-            st.success(f"### 🎁 Recommended Product Category: **{predicted_category}**")
+            st.success(f"### Recommended Product Category: **{predicted_category}**")
 
             # Show probabilities
             st.subheader("Prediction Confidence")
