@@ -39,35 +39,35 @@ def load_models() -> Dict[str, Any] | None:
 
         if best_model_name == 'XGBoost':
             try:
-                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_xgb.joblib")
+                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_xgb.joblib") # type: ignore
                 loaded_models['model_used'] = 'XGBoost'
             except FileNotFoundError as e:
                 st.warning(f"XGBoost model file not found: {e}")
-                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib")
+                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib") # type: ignore
                 loaded_models['model_used'] = 'Random Forest (fallback)'
-            except joblib.exceptions.JoblibError as e:
-                st.warning(f"Joblib error loading XGBoost: {e}")
-                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib")
+            except Exception as e:
+                st.warning(f"Error loading XGBoost model: {e}")
+                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib") # type: ignore
                 loaded_models['model_used'] = 'Random Forest (fallback)'
         else:
-            loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib")
+            loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib") # type: ignore
             loaded_models['model_used'] = 'Random Forest'
 
-        loaded_models['label_encoder'] = joblib.load(MODEL_DIR / "label_encoder.joblib")
+        loaded_models['label_encoder'] = joblib.load(MODEL_DIR / "label_encoder.joblib") # type: ignore
 
-        return loaded_models
+        return loaded_models # type: ignore
     except FileNotFoundError as e:
         st.error(f"Model info file not found: {e}")
     return None
 
 @st.cache_data
-def load_data():
+def load_data() -> pd.DataFrame | None:
     """Load customer data"""
     try:
-        df = pd.read_csv(PROCESSED_DIR / "merged_customer_data.csv")
-        return df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
+        data = pd.read_csv(PROCESSED_DIR / "merged_customer_data.csv") # type: ignore
+        return data
+    except FileNotFoundError as e:
+        st.error(f"Data file not found: {e}")
         return None
 
 # Initialize session state
@@ -132,24 +132,24 @@ with tab1:
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        st.metric("Total Customers", len(df['customer_id_new'].unique()))
+        st.metric("Total Customers", len(df['customer_id_new'].unique())) # type: ignore
     with col2:
         st.metric("Total Transactions", len(df))
     with col3:
-        st.metric("Product Categories", len(df['product_category'].unique()))
+        st.metric("Product Categories", len(df['product_category'].unique())) # type: ignore
     with col4:
         st.metric("Avg Purchase Amount", f"${df['purchase_amount'].mean():.2f}")
 
 
     with st.expander("View Full Dataset"):
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df, use_container_width=True)  # type: ignore
 
     with st.expander("View Data Sample"):
-        st.dataframe(df.describe(), use_container_width=True)
+        st.dataframe(df.describe(), use_container_width=True)  # type: ignore
 
     product_counts = df['product_category'].value_counts()
     with st.expander("View Category Counts"):
-        st.bar_chart(product_counts)
+        st.bar_chart(product_counts) # type: ignore
 
 # Tab 2: Face Authentication
 with tab2:
@@ -202,7 +202,7 @@ with tab3:
 
     uploaded_audio = st.file_uploader(
         "Choose an audio file",
-        type=['wav', 'mp3', 'ogg'],
+        type=['wav', 'mp4', 'ogg'],
         key="audio_upload"
     )
 
@@ -248,7 +248,7 @@ with tab4:
     with col1:
         social_platform = st.selectbox(
             'Social Media Platform',
-            df['social_media_platform'].unique()
+            df['social_media_platform'].unique()  # type: ignore
         )
 
         engagement_score = st.slider(
@@ -268,7 +268,7 @@ with tab4:
     with col2:
         sentiment = st.selectbox(
             'Review Sentiment',
-            df['review_sentiment'].unique()
+            df['review_sentiment'].unique() # type: ignore
         )
 
         purchase_amount = st.number_input(
@@ -297,20 +297,20 @@ with tab4:
 
     # Show input data
     with st.expander("View Input Data"):
-        st.dataframe(input_data, use_container_width=True)
+        st.dataframe(input_data, use_container_width=True) # type: ignore
 
     # Make prediction
     if st.button("Get Product Recommendation", type="primary"):
         try:
             # Prepare data (encode categorical variables)
-            input_encoded = pd.get_dummies(input_data, columns=['social_media_platform', 'review_sentiment'])
+            input_encoded = pd.get_dummies(input_data, columns=['social_media_platform', 'review_sentiment']) # type: ignore
 
             # Align columns with training data
             model_features = models['product_model'].feature_names_in_
             for col in model_features:
                 if col not in input_encoded.columns:
                     input_encoded[col] = 0
-            input_encoded = input_encoded[model_features]
+            input_encoded = input_encoded[model_features] # type: ignore
 
             # Predict
             prediction = models['product_model'].predict(input_encoded)
@@ -325,16 +325,16 @@ with tab4:
             # Show probabilities
             st.subheader("Prediction Confidence")
             proba_df = pd.DataFrame({
-                'Product Category': models['label_encoder'].classes_,
+                'Product Category': models['label_encoder'].classes_, # type: ignore
                 'Probability': prediction_proba[0]
             }).sort_values('Probability', ascending=False)
 
-            st.dataframe(proba_df, use_container_width=True)
-            st.bar_chart(proba_df.set_index('Product Category'))
+            st.dataframe(proba_df, use_container_width=True) # type: ignore
+            st.bar_chart(proba_df.set_index('Product Category')) # type: ignore
 
             # Model performance info
             with st.expander("Model Performance"):
-                st.json(models['model_info'])
+                st.json(models['model_info']) # type: ignore
 
         except Exception as e:
             st.error(f"Prediction error: {e}")
