@@ -11,6 +11,7 @@ from typing import Dict, Any
 import streamlit as st
 import pandas as pd
 import joblib  # type: ignore
+import plotly.express as px  # type: ignore
 
 # Page configuration
 st.set_page_config(
@@ -77,6 +78,10 @@ if 'voice_authenticated' not in st.session_state:
     st.session_state.voice_authenticated = False
 if 'current_user' not in st.session_state:
     st.session_state.current_user = None
+if 'prediction' not in st.session_state:
+    st.session_state.prediction = None
+if 'prediction_proba' not in st.session_state:
+    st.session_state.prediction_proba = None
 
 # Main title
 st.title('🛍️ Product Recommendation System')
@@ -112,6 +117,14 @@ with st.sidebar:
     st.subheader("Model Information")
     st.info(f"**Active Model:** {models['model_used']}")
 
+    with st.expander("🔍 View Model Details"):
+        model_features = models['product_model'].feature_names_in_
+        st.write("**Model Features:**")
+        st.write(model_features)
+
+        st.write("**Label Encoder Classes (Product Categories):**")
+        st.write(models['label_encoder'].classes_)
+
     st.divider()
 
     # Reset button
@@ -119,12 +132,14 @@ with st.sidebar:
         st.session_state.face_authenticated = False
         st.session_state.voice_authenticated = False
         st.session_state.current_user = None
+        st.session_state.prediction = None
+        st.session_state.prediction_proba = None
         st.rerun()
 
 # Main content area
 tab1, tab2, tab3, tab4 = st.tabs(
     ["Data Overview", "Face Authentication",
-      "Voice Verification", "Product Prediction"])
+      "Product Recommendation", "Voice Confirmation"])
 
 # Tab 1: Data Overview
 with tab1:
@@ -182,63 +197,23 @@ with tab2:
                 if auth_choice == "Authorized User":
                     st.session_state.face_authenticated = True
                     st.session_state.current_user = "User_001"  # Simulated user ID
-                    st.success("Face recognized! You may proceed to voice verification.")
+                    st.success("Face recognized! Proceed to Product Recommendation tab.")
                 else:
                     st.session_state.face_authenticated = False
                     st.error("Face not recognized. Access denied.")
                 st.rerun()
 
     if not st.session_state.face_authenticated:
-        st.warning("Please authenticate your face to proceed to voice verification")
-# Tab 3: Voice Verification
+        st.warning("Please authenticate your face to access product recommendations")
+# Tab 3: Product Recommendation
 with tab3:
-    st.header("Step 2: Voice Verification")
+    st.header("Step 2: Product Recommendation")
 
     if not st.session_state.face_authenticated:
         st.error("Face authentication required first!")
         st.stop()
 
-    st.write("Upload an audio sample saying 'Yes, approve' or 'Confirm transaction'")
-
-    uploaded_audio = st.file_uploader(
-        "Choose an audio file",
-        type=['wav', 'mp4', 'ogg'],
-        key="audio_upload"
-    )
-
-    if uploaded_audio is not None:
-        st.audio(uploaded_audio)
-
-        # Simulated voice verification (replace with actual voice model)
-        voice_choice = st.radio(
-            "Simulate voice verification result:",
-            ["Authorized Voice", "Unauthorized Voice"]
-        )
-
-        if st.button("Verify Voice", type="primary"):
-            if voice_choice == "Authorized Voice":
-                st.session_state.voice_authenticated = True
-                st.success("Voice verified! You may now access product recommendations.")
-            else:
-                st.session_state.voice_authenticated = False
-                st.error("Voice not recognized. Access denied.")
-            st.rerun()
-
-    if not st.session_state.voice_authenticated:
-        st.warning("Please verify your voice to access product recommendations")
-# Tab 4: Product Prediction
-with tab4:
-    st.header("🎯 Step 3: Product Recommendation")
-
-    if not st.session_state.face_authenticated:
-        st.error("Face authentication required!")
-        st.stop()
-
-    if not st.session_state.voice_authenticated:
-        st.error("Voice verification required!")
-        st.stop()
-
-    st.success("All authentication steps completed! You can now get product recommendations.")
+    st.success("Face authenticated! Get your product recommendation below.")
 
     # Input features for prediction
     st.subheader("Enter Customer Profile")
@@ -287,12 +262,12 @@ with tab4:
 
     # Create input dataframe
     input_data = pd.DataFrame({
-        'social_media_platform': [social_platform],
-        'engagement_score': [engagement_score],
-        'purchase_interest_score': [purchase_interest],
-        'review_sentiment': [sentiment],
-        'purchase_amount': [purchase_amount],
-        'customer_rating': [rating]
+            'engagement_score': [engagement_score],
+            'purchase_interest_score': [purchase_interest],
+            'purchase_amount': [purchase_amount],
+            'customer_rating': [rating],
+            'review_sentiment': [sentiment],
+            'primary_platform': [social_platform]
     })
 
     # Show input data
@@ -302,25 +277,31 @@ with tab4:
     # Make prediction
     if st.button("Get Product Recommendation", type="primary"):
         try:
+            # Display input before encoding
+            st.write("**Input Data (Before Encoding):**")
+            st.dataframe(input_data) # type: ignore
             # Prepare data (encode categorical variables)
-            input_encoded = pd.get_dummies(input_data, columns=['social_media_platform', 'review_sentiment']) # type: ignore
 
             # Align columns with training data
             model_features = models['product_model'].feature_names_in_
-            for col in model_features:
-                if col not in input_encoded.columns:
-                    input_encoded[col] = 0
-            input_encoded = input_encoded[model_features] # type: ignore
+            st.write(f"**Model Expected Features:** {model_features}")
 
             # Predict
-            prediction = models['product_model'].predict(input_encoded)
-            prediction_proba = models['product_model'].predict_proba(input_encoded)
-
+            prediction = models['product_model'].predict(input_data)
+            prediction_proba = models['product_model'].predict_proba(input_data)
             # Decode prediction
             predicted_category = models['label_encoder'].inverse_transform(prediction)[0]
 
+            # For random forest
+            # predicted_category = prediction[0]
+
+            # Store prediction in session state
+            st.session_state.prediction = predicted_category
+            st.session_state.prediction_proba = prediction_proba
+
             # Display results
-            st.success(f"### Recommended Product Category: **{predicted_category}**")
+            st.success(f"### Recommended Product: **{predicted_category}**")
+            st.info("**Please proceed to Voice Confirmation tab to approve this recommendation**")
 
             # Show probabilities
             st.subheader("Prediction Confidence")
@@ -339,3 +320,56 @@ with tab4:
         except Exception as e:
             st.error(f"Prediction error: {e}")
             st.write("Debug: Check that your model was trained with the correct features")
+# Tab 4: Voice Confirmation
+with tab4:
+    st.header("Step 3: Voice Confirmation")
+
+    if not st.session_state.face_authenticated:
+        st.error("Face authentication required first!")
+        st.stop()
+
+    if st.session_state.prediction is None:
+        st.warning("Please get a product recommendation first (Tab 3)")
+        st.stop()
+
+    st.info(f"**Pending Recommendation:** {st.session_state.prediction}")
+    st.write("Upload audio saying **'Yes, approve'** or **'Confirm transaction'** to confirm this recommendation")
+
+    uploaded_audio = st.file_uploader(
+        "Choose an audio file",
+        type=['wav', 'mp3', 'ogg', 'mp4'],
+        key="audio_upload"
+    )
+
+    if uploaded_audio is not None:
+        st.audio(uploaded_audio)
+
+        # Simulated voice verification (replace with actual voice model)
+        voice_choice = st.radio(
+            "Simulate voice verification result:",
+            ["Authorized Voice", "Unauthorized Voice"]
+        )
+
+        if st.button("Verify & Approve", type="primary"):
+            if voice_choice == "Authorized Voice":
+                st.session_state.voice_authenticated = True
+                st.success("Voice verified! Transaction approved!")
+                
+                # Display final approved recommendation
+                st.balloons()
+                st.success(f"### APPROVED: {st.session_state.prediction}")
+                # Show confidence
+                proba_df = pd.DataFrame({
+                    'Product Category': models['label_encoder'].classes_, # type: ignore
+                    'Probability': st.session_state.prediction_proba[0]
+                }).sort_values('Probability', ascending=False)
+
+                st.subheader("Final Prediction Confidence")
+                st.dataframe(proba_df, use_container_width=True) # type: ignore
+                st.bar_chart(proba_df.set_index('Product Category')) # type: ignore
+
+            else:
+                st.error("Voice not recognized. Transaction denied.")
+                st.session_state.voice_authenticated = False
+                st.session_state.prediction = None
+                st.session_state.prediction_proba = None
