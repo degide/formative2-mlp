@@ -11,7 +11,6 @@ from typing import Dict, Any
 import streamlit as st
 import pandas as pd
 import joblib  # type: ignore
-import plotly.express as px  # type: ignore
 
 # Page configuration
 st.set_page_config(
