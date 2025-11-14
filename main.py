@@ -455,7 +455,7 @@ with tab3:
             }).sort_values('Probability', ascending=False)
 
             st.dataframe(proba_df, use_container_width=True) # type: ignore
-            st.bar_chart(proba_df.set_index('Product Category')) # type: ignore
+
 
         except Exception as e:
             st.error(f"Prediction error: {e}")
