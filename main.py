@@ -5,12 +5,12 @@ A Streamlit app implementing:
 2. Voice Verification Authentication  
 3. Product Recommendation Model
 """
-import json
 from pathlib import Path
-from typing import Dict, Any
-import streamlit as st
+import sys
 import pandas as pd
-import joblib  # type: ignore
+import streamlit as st
+from utils.load_models import load_all_models, load_data
+sys.path.insert(0, str(Path(__file__).parent))
 
 # Page configuration
 st.set_page_config(
@@ -21,54 +21,18 @@ st.set_page_config(
 
 # Paths
 DATA_DIR = Path("data")
-MODEL_DIR = DATA_DIR / "processed" / "models"
 PROCESSED_DIR = DATA_DIR / "processed"
 
-# Load models and data
-@st.cache_resource
-def load_models() -> Dict[str, Any] | None:
-    """Load all trained models"""
-    loaded_models = {}
-    try:
-        # Load model info to determine best model
-        with open(MODEL_DIR / "best_model_info.json", 'r', encoding='utf-8') as f:
-            loaded_models['model_info'] = json.load(f)
+# ==================== LOAD DATA AND MODELS ====================
 
-        # Try to load XGBoost (best model) first
-        best_model_name = loaded_models['model_info'].get('best_model_name', 'Random Forest')
+# Load data and models
+df = load_data()
+with st.spinner("Loading models..."):
+    models = load_all_models()  # type: ignore
+    st.toast("Data and models loaded successfully!", icon="✅")
 
-        if best_model_name == 'XGBoost':
-            try:
-                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_xgb.joblib") # type: ignore
-                loaded_models['model_used'] = 'XGBoost'
-            except FileNotFoundError as e:
-                st.warning(f"XGBoost model file not found: {e}")
-                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib") # type: ignore
-                loaded_models['model_used'] = 'Random Forest (fallback)'
-            except Exception as e:
-                st.warning(f"Error loading XGBoost model: {e}")
-                loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib") # type: ignore
-                loaded_models['model_used'] = 'Random Forest (fallback)'
-        else:
-            loaded_models['product_model'] = joblib.load(MODEL_DIR / "product_recommender_rf.joblib") # type: ignore
-            loaded_models['model_used'] = 'Random Forest'
-
-        loaded_models['label_encoder'] = joblib.load(MODEL_DIR / "label_encoder.joblib") # type: ignore
-
-        return loaded_models # type: ignore
-    except FileNotFoundError as e:
-        st.error(f"Model info file not found: {e}")
-    return None
-
-@st.cache_data
-def load_data() -> pd.DataFrame | None:
-    """Load customer data"""
-    try:
-        data = pd.read_csv(PROCESSED_DIR / "merged_customer_data.csv") # type: ignore
-        return data
-    except FileNotFoundError as e:
-        st.error(f"Data file not found: {e}")
-        return None
+if df is None or models is None:
+    st.stop()
 
 # Initialize session state
 if 'face_authenticated' not in st.session_state:
@@ -86,13 +50,6 @@ if 'prediction_proba' not in st.session_state:
 st.title('🛍️ Product Recommendation System')
 st.info('🔐 A sequential authentication system using' \
 ' facial recognition and voice validation before providing personalized product recommendations')
-
-# Load data and models
-df = load_data()
-models = load_models()
-
-if df is None or models is None:
-    st.stop()
 
 # Sidebar - System Status
 with st.sidebar:
@@ -112,17 +69,17 @@ with st.sidebar:
 
     st.divider()
 
-    # Model info
-    st.subheader("Model Information")
-    st.info(f"**Active Model:** {models['model_used']}")
+    # Product model status
+    product_status = models.get('model_used') # type: ignore
+    st.info(f"**Product Model:** {product_status}")
 
-    with st.expander("🔍 View Model Details"):
-        model_features = models['product_model'].feature_names_in_
-        st.write("**Model Features:**")
-        st.write(model_features)
+    # Face model status
+    face_status = "Loaded" if models.get('face_model') is not None else "Simulation" # type: ignore
+    st.info(f"**Face Model:** {face_status}")
 
-        st.write("**Label Encoder Classes (Product Categories):**")
-        st.write(models['label_encoder'].classes_)
+    # Voice model status
+    voice_status = "Loaded" if models.get('voice_model') is not None else "Simulation" # type: ignore
+    st.info(f"**Voice Model:** {voice_status}")
 
     st.divider()
 
@@ -158,16 +115,154 @@ with tab1:
     with st.expander("View Full Dataset"):
         st.dataframe(df, use_container_width=True)  # type: ignore
 
-    with st.expander("View Data Sample"):
-        st.dataframe(df.describe(), use_container_width=True)  # type: ignore
-
     product_counts = df['product_category'].value_counts()
     with st.expander("View Category Counts"):
         st.bar_chart(product_counts) # type: ignore
 
+    # Replace the "My models" expander section (around line 140) with this:
+
+    with st.expander("System Models Overview"):
+
+        # ==================== PRODUCT RECOMMENDATION MODEL ====================
+        with st.expander("Product Recommendation Model Details"):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.metric("Model Type", models.get('model_used', 'N/A'))
+                st.metric("Status", "Loaded" if models.get('product_model') else "Not Loaded")
+
+            with col2:
+                if models.get('label_encoder'):
+                    num_categories = len(models['label_encoder'].classes_)
+                    st.metric("Product Categories", num_categories)
+
+                if models.get('product_model') and hasattr(models['product_model'], 'feature_names_in_'):
+                    num_features = len(models['product_model'].feature_names_in_)
+                    st.metric("Input Features", num_features)
+
+            # Product Model Features
+            if models.get('product_model') and hasattr(models['product_model'], 'feature_names_in_'):
+                with st.expander("View Product Model Features"):
+                    features = models['product_model'].feature_names_in_
+                    st.write("**Required Input Features:**")
+
+                    # Display features in a nice table
+                    features_df = pd.DataFrame({
+                        'Feature Name': features
+                    })
+                    st.dataframe(features_df, use_container_width=True, hide_index=False) #type: ignore
+
+            # Product Categories
+            if models.get('label_encoder'):
+                with st.expander("View Product Categories"):
+                    categories = models['label_encoder'].classes_
+                    st.write("**Predictable Product Categories:**")
+
+                    # Display categories in a nice table with indices
+                    categories_df = pd.DataFrame({
+                        'Category Name': categories
+                    })
+                    st.dataframe(categories_df, use_container_width=True, hide_index=False) #type: ignore
+
+        # ==================== FACE RECOGNITION MODEL ====================
+        with st.expander("Face Recognition Model Details"):
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                if models.get('face_model'):
+                    st.metric("Status", "Loaded")
+                    st.metric("Model Type", type(models['face_model']).__name__)
+                else:
+                    st.metric("Status", "Simulation Mode")
+                    if models.get('face_error'):
+                        st.caption(f"Reason: {models['face_error']}")
+
+            with col2:
+                if models.get('face_model'):
+                    # Show additional face model info if available
+                    if hasattr(models['face_model'], 'n_features_in_'):
+                        st.metric("Input Features", models['face_model'].n_features_in_)
+                    if hasattr(models['face_model'], 'classes_'):
+                        st.metric("Recognized Users", len(models['face_model'].classes_))
+
+            # Face Model Details
+            if models.get('face_model'):
+                with st.expander("View Face Model Details"):
+                    st.write("**Model Information:**")
+
+                    # Dynamically show all available attributes
+                    face_info = {}
+                    for attr in ['n_features_in_', 'classes_', 'feature_names_in_']:
+                        if hasattr(models['face_model'], attr):
+                            face_info[attr] = getattr(models['face_model'], attr)
+
+                    if face_info:
+                        st.json(face_info) #type: ignore
+                    else:
+                        st.info("Model loaded but no additional details available")
+
+        # ==================== VOICE VERIFICATION MODEL ====================
+        with st.expander("Voice Verification Model Details"):
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                if models.get('voice_model'):
+                    st.metric("Status", "Loaded")
+                    st.metric("Model Type", type(models['voice_model']).__name__)
+                else:
+                    st.metric("Status", "Simulation Mode")
+                    if models.get('voice_error'):
+                        st.caption(f"Reason: {models['voice_error']}")
+
+            with col2:
+                if models.get('voice_model'):
+                    # Show additional voice model info if available
+                    if hasattr(models['voice_model'], 'n_features_in_'):
+                        st.metric("Input Features", models['voice_model'].n_features_in_)
+                    if hasattr(models['voice_model'], 'classes_'):
+                        st.metric("Voice Profiles", len(models['voice_model'].classes_))
+
+            # Voice Model Details
+            if models.get('voice_model'):
+                with st.expander("View Voice Model Details"):
+                    st.write("**Model Information:**")
+
+                    # Dynamically show all available attributes
+                    voice_info = {}
+                    for attr in ['n_features_in_', 'classes_', 'feature_names_in_']:
+                        if hasattr(models['voice_model'], attr):
+                            voice_info[attr] = getattr(models['voice_model'], attr)
+
+                    if voice_info:
+                        st.json(voice_info) #type: ignore
+                    else:
+                        st.info("Model loaded but no additional details available")
+
+        # ==================== ERROR SUMMARY ====================
+        if models.get('errors') or models.get('face_error') or models.get('voice_error'):
+            st.markdown("### Loading Warnings/Errors")
+
+            all_errors = []
+
+            # Product model errors
+            if models.get('errors'):
+                all_errors.extend(models['errors']) # type: ignore
+
+            # Face model errors
+            if models.get('face_error'):
+                all_errors.append(f"Face Model: {models['face_error']}") # type: ignore
+
+            # Voice model errors
+            if models.get('voice_error'):
+                all_errors.append(f"Voice Model: {models['voice_error']}") # type: ignore
+            for i, error in enumerate(all_errors, 1): # type: ignore
+                st.warning(f"{i}. {error}")
+
 # Tab 2: Face Authentication
 with tab2:
-    st.header("Step 1: Face Recognition Authentication")
+    st.header("Sterp 1: Face Recognition Authentication")
 
     st.write("Upload a facial image for authentication")
 
@@ -184,23 +279,78 @@ with tab2:
             st.image(uploaded_image, caption="Uploaded Image", use_container_width=True)
 
         with col2:
-            st.write("### Authentication Options")
+            st.write("### Authentication")
 
-            # Simulated authentication (replace with actual face recognition model)
-            auth_choice = st.radio(
-                "Simulate authentication result:",
-                ["Authorized User", "Unauthorized User"]
-            )
+            # Check if face model is available
+            if models.get('face_model') is not None and models.get('face_class_names') is not None:
+                # REAL FACE RECOGNITION MODEL
+                st.info("Using AI face recognition model")
 
-            if st.button("Authenticate Face", type="primary"):
-                if auth_choice == "Authorized User":
-                    st.session_state.face_authenticated = True
-                    st.session_state.current_user = "User_001"  # Simulated user ID
-                    st.success("Face recognized! Proceed to Product Recommendation tab.")
-                else:
-                    st.session_state.face_authenticated = False
-                    st.error("Face not recognized. Access denied.")
-                st.rerun()
+                if st.button("Authenticate Face", type="primary"):
+                    with st.spinner("Analyzing face..."):
+                        # Import preprocessing function
+                        from utils.load_models import preprocess_face_image
+
+                        # Preprocess image
+                        processed_image = preprocess_face_image(uploaded_image)
+
+                        if processed_image is not None:
+                            try:
+                                # Make prediction
+                                predictions = models['face_model'].predict(processed_image, verbose=0)
+                                predicted_class_idx = np.argmax(predictions[0])
+                                confidence = predictions[0][predicted_class_idx]
+                                predicted_name = models['face_class_names'][predicted_class_idx]
+
+                                # Show all predictions
+                                st.write("**Recognition Results:**")
+                                for idx, class_name in enumerate(models['face_class_names']):
+                                    prob = predictions[0][idx]
+                                    st.write(f"- {class_name}: {prob:.2%}")
+
+                                # Decision threshold (adjust as needed)
+                                CONFIDENCE_THRESHOLD = 0.80  # 80% confidence
+
+                                if confidence >= CONFIDENCE_THRESHOLD:
+                                    st.session_state.face_authenticated = True
+                                    st.session_state.current_user = predicted_name
+                                    st.success(f"Face recognized as **{predicted_name}** with {confidence:.2%} confidence!")
+                                    st.success("Proceed to Product Recommendation tab.")
+                                    st.balloons()
+                                else:
+                                    st.session_state.face_authenticated = False
+                                    st.error(f"Unrecognized face (Confidence: {confidence:.2%} < {CONFIDENCE_THRESHOLD:.0%})")
+                                    st.warning("Access denied.")
+
+                                st.rerun()
+
+                            except Exception as e:
+                                st.error(f"Face recognition error: {e}")
+                                import traceback
+                                st.code(traceback.format_exc())
+                        else:
+                            st.error("Failed to process image. Please upload a valid image file.")
+
+            else:
+                # SIMULATION MODE (fallback when model not available)
+                st.warning("Face model not available - using simulation mode")
+
+                auth_choice = st.radio(
+                    "Simulate authentication result:",
+                    ["Authorized User", "Unauthorized User"]
+                )
+
+                if st.button("Authenticate Face", type="primary"):
+                    if auth_choice == "Authorized User":
+                        st.session_state.face_authenticated = True
+                        st.session_state.current_user = "User_001"  # Simulated user ID
+                        st.success("Face recognized! (Simulation)")
+                        st.success("Proceed to Product Recommendation tab.")
+                    else:
+                        st.session_state.face_authenticated = False
+                        st.error("Face not recognized. (Simulation)")
+                        st.error("Access denied.")
+                    st.rerun()
 
     if not st.session_state.face_authenticated:
         st.warning("Please authenticate your face to access product recommendations")
@@ -278,13 +428,13 @@ with tab3:
         try:
 
             # Predict
-            prediction = models['product_model'].predict(input_data)
-            prediction_proba = models['product_model'].predict_proba(input_data)
+            prediction = models['product_model'].predict(input_data) # type: ignore
+            prediction_proba = models['product_model'].predict_proba(input_data) # type: ignore
             # Decode prediction
-            predicted_category = models['label_encoder'].inverse_transform(prediction)[0]
+            # predicted_category = models['label_encoder'].inverse_transform(prediction)[0] # type: ignore
 
             # For random forest
-            # predicted_category = prediction[0]
+            predicted_category = prediction[0]
 
             # Store prediction in session state
             st.session_state.prediction = predicted_category
@@ -315,11 +465,11 @@ with tab4:
         st.error("Face authentication required first!")
         st.stop()
 
-    if st.session_state.prediction is None:
+    if st.session_state.prediction is None:  # type: ignore
         st.warning("Please get a product recommendation first (Tab 3)")
         st.stop()
 
-    st.info(f"**Pending Recommendation:** {st.session_state.prediction}")
+    st.info(f"**Pending Recommendation:** {st.session_state.prediction}")  # type: ignore
     st.write("Upload audio saying"
     " **'Yes, approve'** or **'Confirm transaction'** to confirm this recommendation")
 
@@ -345,7 +495,7 @@ with tab4:
 
                 # Display final approved recommendation
                 st.balloons()
-                st.success(f"### APPROVED: {st.session_state.prediction}")
+                st.success(f"### APPROVED: {st.session_state.prediction}") # type: ignore
                 # Show confidence
                 proba_df = pd.DataFrame({
                     'Product Category': models['label_encoder'].classes_, # type: ignore
