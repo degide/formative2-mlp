@@ -334,8 +334,6 @@ with tab2:
                                     st.error(f"Unrecognized face (Confidence: {confidence:.2%} < {CONFIDENCE_THRESHOLD:.0%})")
                                     st.warning("Access denied.")
 
-                                st.rerun()
-
                             except Exception as e:
                                 st.error(f"Face recognition error: {e}")
                                 import traceback
@@ -362,7 +360,6 @@ with tab2:
                         st.session_state.face_authenticated = False
                         st.error("Face not recognized. (Simulation)")
                         st.error("Access denied.")
-                    st.rerun()
 
     if not st.session_state.face_authenticated:
         st.warning("Please authenticate your face to access product recommendations")
