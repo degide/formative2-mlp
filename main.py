@@ -443,10 +443,10 @@ with tab3:
             prediction = models['product_model'].predict(input_data) # type: ignore
             prediction_proba = models['product_model'].predict_proba(input_data) # type: ignore
             # Decode prediction
-            # predicted_category = models['label_encoder'].inverse_transform(prediction)[0] # type: ignore
+            predicted_category = models['label_encoder'].inverse_transform(prediction)[0] # type: ignore
 
             # For random forest
-            predicted_category = prediction[0]
+            # predicted_category = prediction[0]
 
             # Store prediction in session state
             st.session_state.prediction = predicted_category
