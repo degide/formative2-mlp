@@ -30,9 +30,12 @@ def load_product_model() -> Dict[str, Any]:
     result = {
         'model': None,
         'model_used': None,
+        'label_encoder': None,
+        'model_info': None,
     }
 
     xgb_path = MODELS / "product_recommender_xgb.joblib"
+    label_encoder_path = MODELS / "label_encoder.joblib"
 
     if xgb_path.exists():
         try:
@@ -45,6 +48,15 @@ def load_product_model() -> Dict[str, Any]:
     else:
         # st.warning(f"XGBoost model not found at {xgb_path}")
         result['model_used'] = 'Not Found' # type: ignore
+    
+    # Load label encoder
+    if label_encoder_path.exists():
+        try:
+            result['label_encoder'] = joblib.load(label_encoder_path) # type: ignore
+        except FileNotFoundError:
+            result['label_encoder'] = None
+    else:
+        result['label_encoder'] = None
 
     return result
 
