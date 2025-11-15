@@ -19,6 +19,8 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf # type: ignore
 tf.config.set_visible_devices([], 'GPU')  # Disable GPU/Metal # type: ignore
 
+import numpy as np
+
 # Page configuration
 st.set_page_config(
     page_title="Recomm",
