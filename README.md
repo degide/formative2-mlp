@@ -1,10 +1,10 @@
 # Formative 2: Multimodal Data Preprocessing Assignment - MLP
 
-**Group 20**
-
----
-
 ## Assignment Overview
+
+**Try the app:** [https://my-recommendation.streamlit.app/](https://my-recommendation.streamlit.app/)
+
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://my-recommendation.streamlit.app/)
 
 This project implements a **User Identity and Product Recommendation System** that authenticates users through **facial recognition** and **voice validation** before providing personalized product recommendations. The system enforces multiple security checkpoints, if any authentication step fails, access to recommendations is denied.
 
